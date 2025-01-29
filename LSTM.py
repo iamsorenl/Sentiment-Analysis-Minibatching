@@ -213,81 +213,132 @@ if __name__ == "__main__":
     test_dataset = IMDBDataset(test_texts, test_labels, vocab)
 
     # Define batch sizes to test
-    batch_sizes = [1, 8, 16, 32, 64]
+    # batch_sizes = [1, 8, 16, 32, 64]
+    batch_sizes = [16]
     training_times = []
     validation_accuracies = []
+
+    best_lr = None
+    best_valid_acc = 0
+    results = {}
+    learning_rates = [1e-3, 5e-3, 1e-4, 5e-4, 1e-2]
 
     N_EPOCHS = 10
 
     # Reinitialize model, optimizer, and loss function
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    
+    criterion = nn.BCELoss()
+
     # Hyperparameters
     EMBED_DIM = 100
     HIDDEN_DIM = 128
     NUM_LAYERS = 2
     DROPOUT = 0.5
 
-    # Initialize the LSTM model
-    model = LSTMClassifier(len(vocab), EMBED_DIM, HIDDEN_DIM, NUM_LAYERS, DROPOUT).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.BCELoss()
+    for lr in learning_rates:
+        print(f"\nTraining with learning rate {lr}...")
 
-    # Loop through different batch sizes
-    for batch_size in batch_sizes:
-        print(f"\nTraining with batch size {batch_size}...")
+        # Loop through different batch sizes
+        for batch_size in batch_sizes:
+            print(f"\nTraining with batch size {batch_size}...")
 
-        # Create new DataLoaders for each batch size
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+            model = LSTMClassifier(len(vocab), embed_dim=100, hidden_dim=128, num_layers=2, dropout=0.5).to(device)
+            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-        # Train the model for each batch size
-        total_start_time = time.time()
-        total_epoch_time = 0
-        for epoch in range(N_EPOCHS):
-            print(f"\nEpoch {epoch+1}/{N_EPOCHS}")
-            train_loss, epoch_time = train_model(model, train_loader, optimizer, criterion, device)
-            valid_loss, valid_acc = evaluate_model(model, valid_loader, criterion, device)
+            # Create new DataLoaders for each batch size
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+            valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+            test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
-            total_epoch_time += epoch_time  # Sum epoch time
-            print(f"Train Loss = {train_loss:.4f}, Valid Loss = {valid_loss:.4f}, Valid Accuracy = {valid_acc:.4f}")
-            print(f"Epoch Time: {epoch_time:.2f} seconds")
+            # Train the model for each batch size
+            total_start_time = time.time()
+            total_epoch_time = 0
+            for epoch in range(N_EPOCHS):
+                print(f"\nEpoch {epoch+1}/{N_EPOCHS}")
+                train_loss, epoch_time = train_model(model, train_loader, optimizer, criterion, device)
+                valid_loss, valid_acc = evaluate_model(model, valid_loader, criterion, device)
 
-        total_training_time = time.time() - total_start_time  # Compute total training time
+                total_epoch_time += epoch_time  # Sum epoch time
+                print(f"Train Loss = {train_loss:.4f}, Valid Loss = {valid_loss:.4f}, Valid Accuracy = {valid_acc:.4f}")
+                print(f"Epoch Time: {epoch_time:.2f} seconds")
 
-        # Store results for plotting
-        training_times.append(total_training_time)
-        validation_accuracies.append(valid_acc)
+            total_training_time = time.time() - total_start_time  # Compute total training time
 
-        print(f"\nBatch Size {batch_size} - Total Training Time: {total_training_time:.2f} seconds")
-        print(f"Batch Size {batch_size} - Average Time Per Epoch: {total_epoch_time / N_EPOCHS:.2f} seconds")
+            # Store results
+            results[lr] = (total_training_time, valid_acc)
 
-        # Evaluate the model on the test set
-        test_loss, test_acc = evaluate_model(model, test_loader, criterion, device)
-        print(f"\nTest Loss = {test_loss:.4f}, Test Accuracy = {test_acc:.4f}")
-    
-    # Plot training time vs. batch size
+            if valid_acc > best_valid_acc:
+                best_valid_acc = valid_acc
+                best_lr = lr
+
+            print(f"\nLearning Rate {lr} - Total Training Time: {total_training_time:.2f} seconds")
+            print(f"Learning Rate {lr} - Average Time Per Epoch: {total_epoch_time / N_EPOCHS:.2f} seconds")
+
+            # Store results for plotting
+            training_times.append(total_training_time)
+            validation_accuracies.append(valid_acc)
+
+            print(f"\nBatch Size {batch_size} - Total Training Time: {total_training_time:.2f} seconds")
+            print(f"Batch Size {batch_size} - Average Time Per Epoch: {total_epoch_time / N_EPOCHS:.2f} seconds")
+
+            # Evaluate the model on the test set
+            test_loss, test_acc = evaluate_model(model, test_loader, criterion, device)
+            print(f"\nTest Loss = {test_loss:.4f}, Test Accuracy = {test_acc:.4f}")
+        
+        """
+        # Plot training time vs. batch size
+        plt.figure(figsize=(8, 5))
+        plt.plot(batch_sizes, training_times, marker='o', linestyle='-', label='Training Time')
+        plt.xlabel('Batch Size')
+        plt.ylabel('Total Training Time (seconds)')
+        plt.title('Training Time vs. Batch Size')
+        plt.legend()
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig("training_time_vs_batch_size.png")  # Save plot
+        print("Saved training time plot as training_time_vs_batch_size.png")
+
+
+        # Plot validation accuracy vs. batch size
+        plt.figure(figsize=(8, 5))
+        plt.plot(batch_sizes, validation_accuracies, marker='o', linestyle='-', color='red', label='Validation Accuracy')
+        plt.xlabel('Batch Size')
+        plt.ylabel('Validation Accuracy')
+        plt.title('Validation Accuracy vs. Batch Size')
+        plt.legend()
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig("validation_accuracy_vs_batch_size_LSTM.png")  # Save plot
+        print("Saved validation accuracy plot as validation_accuracy_vs_batch_size_LSTM.png")
+        """
+
+    # Plot validation accuracy vs. learning rate
     plt.figure(figsize=(8, 5))
-    plt.plot(batch_sizes, training_times, marker='o', linestyle='-', label='Training Time')
-    plt.xlabel('Batch Size')
-    plt.ylabel('Total Training Time (seconds)')
-    plt.title('Training Time vs. Batch Size')
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig("training_time_vs_batch_size.png")  # Save plot
-    print("Saved training time plot as training_time_vs_batch_size.png")
-
-
-    # Plot validation accuracy vs. batch size
-    plt.figure(figsize=(8, 5))
-    plt.plot(batch_sizes, validation_accuracies, marker='o', linestyle='-', color='red', label='Validation Accuracy')
-    plt.xlabel('Batch Size')
+    lrs = list(results.keys())
+    valid_accuracies = [results[lr][1] for lr in lrs]
+    plt.plot(lrs, valid_accuracies, marker='o', linestyle='-', color='red', label='Validation Accuracy')
+    plt.xscale("log")  # Log scale for better visualization
+    plt.xlabel('Learning Rate')
     plt.ylabel('Validation Accuracy')
-    plt.title('Validation Accuracy vs. Batch Size')
+    plt.title('Validation Accuracy vs. Learning Rate')
     plt.legend()
     plt.grid()
     plt.tight_layout()
-    plt.savefig("validation_accuracy_vs_batch_size_LSTM.png")  # Save plot
-    print("Saved validation accuracy plot as validation_accuracy_vs_batch_size_LSTM.png")
+    plt.savefig("validation_accuracy_vs_learning_rate_LSTM.png")  # Save plot
+    print("Saved validation accuracy plot as validation_accuracy_vs_learning_rate_LSTM.png")
+
+    # Plot training time vs. learning rate
+    plt.figure(figsize=(8, 5))
+    train_times = [results[lr][0] for lr in lrs]
+    plt.plot(lrs, train_times, marker='o', linestyle='-', color='blue', label='Training Time')
+    plt.xscale("log")  # Log scale for better visualization
+    plt.xlabel('Learning Rate')
+    plt.ylabel('Total Training Time (seconds)')
+    plt.title('Training Time vs. Learning Rate')
+    plt.legend()
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig("training_time_vs_learning_rate_LSTM.png")  # Save plot
+    print("Saved training time plot as training_time_vs_learning_rate_LSTM.png")
+
+    print(f"\nBest Learning Rate: {best_lr} with Validation Accuracy: {best_valid_acc:.4f}")

@@ -195,13 +195,14 @@ if __name__ == "__main__":
     criterion = nn.BCEWithLogitsLoss()
 
     for lr in learning_rates:
-        print(f"\nTraining with learning rate {lr} and batch size {batch_size}...")
+        print(f"\nTraining with learning rate {lr} and batch size {batch_sizes[0]}...")
+        
         model = LogisticRegression(len(vocab), embed_dim=100).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         # Loop through different batch sizes
         for batch_size in batch_sizes:
-            print(f"\nTraining with batch size {batch_size}...")
+            print(f"\nTraining with batch size {batch_sizes[0]}...")
 
             # Create new DataLoaders for each batch size
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)

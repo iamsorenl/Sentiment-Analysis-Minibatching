@@ -198,9 +198,6 @@ if __name__ == "__main__":
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
         criterion = nn.BCEWithLogitsLoss()
 
-        total_start_time = time.time()
-        total_epoch_time = 0
-
         # Train the model for each batch size
         total_start_time = time.time()
         total_epoch_time = 0
@@ -234,6 +231,7 @@ if __name__ == "__main__":
     plt.title('Training Time vs. Batch Size')
     plt.legend()
     plt.grid()
+    plt.tight_layout()
     plt.show()
 
     # Plot validation accuracy vs. batch size
@@ -244,4 +242,5 @@ if __name__ == "__main__":
     plt.title('Validation Accuracy vs. Batch Size')
     plt.legend()
     plt.grid()
+    plt.tight_layout()
     plt.show()

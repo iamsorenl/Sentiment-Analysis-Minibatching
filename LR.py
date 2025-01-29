@@ -13,6 +13,8 @@ from sklearn.metrics import accuracy_score
 import tarfile
 from spacy.cli import download
 import urllib.request
+import matplotlib.pyplot as plt
+
 
 # Ensure spaCy model is installed
 try:
@@ -151,8 +153,16 @@ if __name__ == "__main__":
     train_texts, train_labels = load_imdb_data("./aclImdb/train")
     test_texts, test_labels = load_imdb_data("./aclImdb/test")
 
-    # Split data
-    print("Splitting data into training and validation sets...")
+    # Shuffle dataset using fixed random seed
+    print("Shuffling and splitting data into training and validation sets...")
+    combined = list(zip(train_texts, train_labels))
+    random.Random(SEED).shuffle(combined)  # Use fixed seed for reproducibility
+    train_texts, train_labels = zip(*combined)  # Unzip back into separate lists
+
+    # Convert back to lists after shuffling
+    train_texts, train_labels = list(train_texts), list(train_labels)
+
+    # Split into training and validation sets
     train_texts, valid_texts = train_texts[:20000], train_texts[20000:]
     train_labels, valid_labels = train_labels[:20000], train_labels[20000:]
 
@@ -166,35 +176,72 @@ if __name__ == "__main__":
     valid_dataset = IMDBDataset(valid_texts, valid_labels, vocab)
     test_dataset = IMDBDataset(test_texts, test_labels, vocab)
 
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=collate_fn)
-    valid_loader = DataLoader(valid_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn)
+    # Define batch sizes to test
+    batch_sizes = [1, 8, 16, 32, 64]
+    training_times = []
+    validation_accuracies = []
 
-    # Model, optimizer, and loss function
-    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-    model = LogisticRegression(len(vocab), embed_dim=100).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.BCEWithLogitsLoss()
-
-    # Train the model
-    total_start_time = time.time()
-    total_epoch_time = 0
     N_EPOCHS = 10
-    for epoch in range(N_EPOCHS):
-        print(f"\nEpoch {epoch+1}/{N_EPOCHS}")
-        train_loss, epoch_time = train_model(model, train_loader, optimizer, criterion, device)
-        valid_loss, valid_acc = evaluate_model(model, valid_loader, criterion, device)
 
-        total_epoch_time += epoch_time  # Sum epoch time
-        print(f"Train Loss = {train_loss:.4f}, Valid Loss = {valid_loss:.4f}, Valid Accuracy = {valid_acc:.4f}")
-        print(f"Epoch Time: {epoch_time:.2f} seconds")
+    # Loop through different batch sizes
+    for batch_size in batch_sizes:
+        print(f"\nTraining with batch size {batch_size}...")
 
-    total_training_time = time.time() - total_start_time  # Compute total training time
-    avg_epoch_time = total_epoch_time / N_EPOCHS  # Compute average epoch time
+        # Create new DataLoaders for each batch size
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
+        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
-    print(f"\nTotal Training Time: {total_training_time:.2f} seconds")
-    print(f"Average Time Per Epoch: {avg_epoch_time:.2f} seconds")
+        # Reinitialize model, optimizer, and loss function
+        device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+        model = LogisticRegression(len(vocab), embed_dim=100).to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        criterion = nn.BCEWithLogitsLoss()
 
-    # Evaluate the model on the test set
-    test_loss, test_acc = evaluate_model(model, test_loader, criterion, device)
-    print(f"\nTest Loss = {test_loss:.4f}, Test Accuracy = {test_acc:.4f}")
+        total_start_time = time.time()
+        total_epoch_time = 0
+
+        # Train the model for each batch size
+        total_start_time = time.time()
+        total_epoch_time = 0
+        for epoch in range(N_EPOCHS):
+            print(f"\nEpoch {epoch+1}/{N_EPOCHS}")
+            train_loss, epoch_time = train_model(model, train_loader, optimizer, criterion, device)
+            valid_loss, valid_acc = evaluate_model(model, valid_loader, criterion, device)
+
+            total_epoch_time += epoch_time  # Sum epoch time
+            print(f"Train Loss = {train_loss:.4f}, Valid Loss = {valid_loss:.4f}, Valid Accuracy = {valid_acc:.4f}")
+            print(f"Epoch Time: {epoch_time:.2f} seconds")
+
+        total_training_time = time.time() - total_start_time  # Compute total training time
+
+        # Store results for plotting
+        training_times.append(total_training_time)
+        validation_accuracies.append(valid_acc)
+
+        print(f"\nBatch Size {batch_size} - Total Training Time: {total_training_time:.2f} seconds")
+        print(f"Batch Size {batch_size} - Average Time Per Epoch: {total_epoch_time / N_EPOCHS:.2f} seconds")
+
+        # Evaluate the model on the test set
+        test_loss, test_acc = evaluate_model(model, test_loader, criterion, device)
+        print(f"\nTest Loss = {test_loss:.4f}, Test Accuracy = {test_acc:.4f}")
+    
+    # Plot training time vs. batch size
+    plt.figure(figsize=(8, 5))
+    plt.plot(batch_sizes, training_times, marker='o', linestyle='-', label='Training Time')
+    plt.xlabel('Batch Size')
+    plt.ylabel('Total Training Time (seconds)')
+    plt.title('Training Time vs. Batch Size')
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    # Plot validation accuracy vs. batch size
+    plt.figure(figsize=(8, 5))
+    plt.plot(batch_sizes, validation_accuracies, marker='o', linestyle='-', color='red', label='Validation Accuracy')
+    plt.xlabel('Batch Size')
+    plt.ylabel('Validation Accuracy')
+    plt.title('Validation Accuracy vs. Batch Size')
+    plt.legend()
+    plt.grid()
+    plt.show()

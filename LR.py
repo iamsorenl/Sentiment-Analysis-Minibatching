@@ -183,6 +183,12 @@ if __name__ == "__main__":
 
     N_EPOCHS = 10
 
+    # Initialize model, optimizer, and loss function
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+    model = LogisticRegression(len(vocab), embed_dim=100).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.BCEWithLogitsLoss()
+
     # Loop through different batch sizes
     for batch_size in batch_sizes:
         print(f"\nTraining with batch size {batch_size}...")
@@ -191,12 +197,6 @@ if __name__ == "__main__":
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
         valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-
-        # Reinitialize model, optimizer, and loss function
-        device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
-        model = LogisticRegression(len(vocab), embed_dim=100).to(device)
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-        criterion = nn.BCEWithLogitsLoss()
 
         # Train the model for each batch size
         total_start_time = time.time()
@@ -232,7 +232,9 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid()
     plt.tight_layout()
-    plt.show()
+    plt.savefig("training_time_vs_batch_size_LR.png")  # Save plot
+    print("Saved training time plot as training_time_vs_batch_size_LR.png")
+
 
     # Plot validation accuracy vs. batch size
     plt.figure(figsize=(8, 5))
@@ -243,4 +245,5 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid()
     plt.tight_layout()
-    plt.show()
+    plt.savefig("validation_accuracy_vs_batch_size_LR.png")  # Save plot
+    print("Saved validation accuracy plot as validation_accuracy_vs_batch_size.png_LR")

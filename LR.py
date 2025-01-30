@@ -224,7 +224,7 @@ if __name__ == "__main__":
             for epoch in range(N_EPOCHS):
                 print(f"\nEpoch {epoch+1}/{N_EPOCHS}")
                 train_loss, epoch_time = train_model(model, train_loader, optimizer, criterion, device)
-                valid_loss, valid_acc = evaluate_model(model, valid_loader, criterion, device)
+                valid_loss, valid_acc, _, _ = evaluate_model(model, valid_loader, criterion, device)
 
                 total_epoch_time += epoch_time  # Sum epoch time
                 print(f"Train Loss = {train_loss:.4f}, Valid Loss = {valid_loss:.4f}, Valid Accuracy = {valid_acc:.4f}")

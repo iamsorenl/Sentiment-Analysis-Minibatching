@@ -117,12 +117,13 @@ def train_model(model, dataloader, optimizer, criterion, device):
     return epoch_loss / len(dataloader), epoch_time
 
 # Evaluation function
-def evaluate_model(model, dataloader, criterion, device):
+def evaluate_model(model, dataloader, criterion, device, original_texts):
     model.eval()
     epoch_loss = 0
-    all_preds, all_labels = [], []
+    all_preds, all_labels, all_texts = [], [], []
 
     loop = tqdm(dataloader, desc="Evaluating", leave=True)
+    batch_idx = 0
     with torch.no_grad():
         for texts, labels, _ in loop:
             texts, labels = texts.to(device), labels.to(device)
@@ -133,13 +134,20 @@ def evaluate_model(model, dataloader, criterion, device):
             # Convert predictions to binary labels (0 or 1)
             pred_labels = torch.round(torch.sigmoid(predictions)).cpu().numpy()
             
+            # Store predictions, labels, and original texts
             all_preds.extend(pred_labels)
             all_labels.extend(labels.cpu().numpy())
+            
+            # Get the corresponding original texts (batch-wise)
+            batch_start = batch_idx * len(labels)
+            batch_end = batch_start + len(labels)
+            all_texts.extend(original_texts[batch_start:batch_end])
+
+            batch_idx += 1
 
     accuracy = accuracy_score(all_labels, all_preds)
     
-    return epoch_loss / len(dataloader), accuracy, all_preds, all_labels
-
+    return epoch_loss / len(dataloader), accuracy, all_preds, all_labels, all_texts
 
 # Download and extract IMDB dataset
 def download_and_extract_data():
@@ -209,30 +217,26 @@ if __name__ == "__main__":
         model = LogisticRegression(len(vocab), embed_dim=100).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-        # Loop through different batch sizes
         for batch_size in batch_sizes:
-            print(f"\nTraining with batch size {batch_sizes[0]}...")
+            print(f"\nTraining with batch size {batch_size}...")
 
-            # Create new DataLoaders for each batch size
             train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
             valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
             test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
 
-            # Train the model for each batch size
             total_start_time = time.time()
             total_epoch_time = 0
             for epoch in range(N_EPOCHS):
                 print(f"\nEpoch {epoch+1}/{N_EPOCHS}")
                 train_loss, epoch_time = train_model(model, train_loader, optimizer, criterion, device)
-                valid_loss, valid_acc, _, _ = evaluate_model(model, valid_loader, criterion, device)
+                valid_loss, valid_acc, _, _, _ = evaluate_model(model, valid_loader, criterion, device, valid_texts)
 
-                total_epoch_time += epoch_time  # Sum epoch time
+                total_epoch_time += epoch_time
                 print(f"Train Loss = {train_loss:.4f}, Valid Loss = {valid_loss:.4f}, Valid Accuracy = {valid_acc:.4f}")
                 print(f"Epoch Time: {epoch_time:.2f} seconds")
 
-            total_training_time = time.time() - total_start_time  # Compute total training time
+            total_training_time = time.time() - total_start_time
 
-            # Store results
             results[lr] = (total_training_time, valid_acc)
 
             if valid_acc > best_valid_acc:
@@ -255,17 +259,22 @@ if __name__ == "__main__":
             # Evaluate the best model on dev and test sets and save predictions
             print("\nEvaluating Best Model...")
 
-            dev_loss, dev_acc, dev_preds, dev_labels = evaluate_model(model, valid_loader, criterion, device)
-            test_loss, test_acc, test_preds, test_labels = evaluate_model(model, test_loader, criterion, device)
+            dev_loss, dev_acc, dev_preds, dev_labels, dev_texts = evaluate_model(
+                model, valid_loader, criterion, device, valid_texts
+            )
+            test_loss, test_acc, test_preds, test_labels, test_texts = evaluate_model(
+                model, test_loader, criterion, device, test_texts
+            )
 
-            # Save predictions to CSV files for analysis
             dev_results_df = pd.DataFrame({
+                "Review": dev_texts,
                 "Gold Label": dev_labels,
                 "Predicted Label": dev_preds
             })
             dev_results_df.to_csv("dev_predictions_LR.csv", index=False)
 
             test_results_df = pd.DataFrame({
+                "Review": test_texts,
                 "Gold Label": test_labels,
                 "Predicted Label": test_preds
             })
@@ -273,12 +282,12 @@ if __name__ == "__main__":
 
             print("Predictions saved to dev_predictions_LR.csv and test_predictions_LR.csv")
 
-            # Print a sample of the predictions for review
             print("\nSample Predictions (Dev Set)")
-            print(dev_results_df.head(10))  # Show first 10 predictions
+            print(dev_results_df.head(10))
 
             print("\nSample Predictions (Test Set)")
-            print(test_results_df.head(10))  # Show first 10 predictions
+            print(test_results_df.head(10))
+
         
         """
 

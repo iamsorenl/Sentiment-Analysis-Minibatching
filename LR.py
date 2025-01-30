@@ -14,6 +14,7 @@ import tarfile
 from spacy.cli import download
 import urllib.request
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 # Ensure spaCy model is installed
@@ -120,6 +121,7 @@ def evaluate_model(model, dataloader, criterion, device):
     model.eval()
     epoch_loss = 0
     all_preds, all_labels = [], []
+
     loop = tqdm(dataloader, desc="Evaluating", leave=True)
     with torch.no_grad():
         for texts, labels, _ in loop:
@@ -127,11 +129,17 @@ def evaluate_model(model, dataloader, criterion, device):
             predictions = model(texts)
             loss = criterion(predictions, labels)
             epoch_loss += loss.item()
-            all_preds.extend(torch.round(torch.sigmoid(predictions)).cpu().numpy())
+            
+            # Convert predictions to binary labels (0 or 1)
+            pred_labels = torch.round(torch.sigmoid(predictions)).cpu().numpy()
+            
+            all_preds.extend(pred_labels)
             all_labels.extend(labels.cpu().numpy())
-            loop.set_postfix(loss=loss.item())
+
     accuracy = accuracy_score(all_labels, all_preds)
-    return epoch_loss / len(dataloader), accuracy
+    
+    return epoch_loss / len(dataloader), accuracy, all_preds, all_labels
+
 
 # Download and extract IMDB dataset
 def download_and_extract_data():
@@ -186,7 +194,8 @@ if __name__ == "__main__":
     best_lr = None
     best_valid_acc = 0
     results = {}
-    learning_rates = [1e-3, 5e-3, 1e-4, 5e-4, 1e-2] 
+    #learning_rates = [1e-3, 5e-3, 1e-4, 5e-4, 1e-2]
+    learning_rates = [1e-3]
 
     N_EPOCHS = 10
 
@@ -241,8 +250,35 @@ if __name__ == "__main__":
             print(f"Batch Size {batch_size} - Average Time Per Epoch: {total_epoch_time / N_EPOCHS:.2f} seconds")
 
             # Evaluate the model on the test set
-            test_loss, test_acc = evaluate_model(model, test_loader, criterion, device)
-            print(f"\nTest Loss = {test_loss:.4f}, Test Accuracy = {test_acc:.4f}")
+            #test_loss, test_acc = evaluate_model(model, test_loader, criterion, device)
+            #print(f"\nTest Loss = {test_loss:.4f}, Test Accuracy = {test_acc:.4f}")
+            # Evaluate the best model on dev and test sets and save predictions
+            print("\nEvaluating Best Model...")
+
+            dev_loss, dev_acc, dev_preds, dev_labels = evaluate_model(model, valid_loader, criterion, device)
+            test_loss, test_acc, test_preds, test_labels = evaluate_model(model, test_loader, criterion, device)
+
+            # Save predictions to CSV files for analysis
+            dev_results_df = pd.DataFrame({
+                "Gold Label": dev_labels,
+                "Predicted Label": dev_preds
+            })
+            dev_results_df.to_csv("dev_predictions_LR.csv", index=False)
+
+            test_results_df = pd.DataFrame({
+                "Gold Label": test_labels,
+                "Predicted Label": test_preds
+            })
+            test_results_df.to_csv("test_predictions_LR.csv", index=False)
+
+            print("Predictions saved to dev_predictions_LR.csv and test_predictions_LR.csv")
+
+            # Print a sample of the predictions for review
+            print("\nSample Predictions (Dev Set)")
+            print(dev_results_df.head(10))  # Show first 10 predictions
+
+            print("\nSample Predictions (Test Set)")
+            print(test_results_df.head(10))  # Show first 10 predictions
         
         """
 

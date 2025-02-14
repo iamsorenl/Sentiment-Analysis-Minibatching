@@ -318,33 +318,44 @@ if __name__ == "__main__":
 
         """
     
-    # Plot validation accuracy vs. learning rate
-    plt.figure(figsize=(8, 5))
-    lrs = list(results.keys())
-    valid_accuracies = [results[lr][1] for lr in lrs]
-    plt.plot(lrs, valid_accuracies, marker='o', linestyle='-', color='red', label='Validation Accuracy')
-    plt.xscale("log")  # Log scale for better visualization
-    plt.xlabel('Learning Rate')
-    plt.ylabel('Validation Accuracy')
-    plt.title('Validation Accuracy vs. Learning Rate')
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig("validation_accuracy_vs_learning_rate_LR.png")  # Save plot
-    print("Saved validation accuracy plot as validation_accuracy_vs_learning_rate_LR.png")
+# Ensure learning rates are sorted properly for log scale
+lrs, train_times, valid_accuracies = zip(*sorted(zip(results.keys(), 
+                                                     [results[lr][0] for lr in results.keys()], 
+                                                     [results[lr][1] for lr in results.keys()])))
 
-    # Plot training time vs. learning rate
-    plt.figure(figsize=(8, 5))
-    train_times = [results[lr][0] for lr in lrs]
-    plt.plot(lrs, train_times, marker='o', linestyle='-', color='blue', label='Training Time')
-    plt.xscale("log")  # Log scale for better visualization
-    plt.xlabel('Learning Rate')
-    plt.ylabel('Total Training Time (seconds)')
-    plt.title('Training Time vs. Learning Rate')
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig("training_time_vs_learning_rate_LR.png")  # Save plot
-    print("Saved training time plot as training_time_vs_learning_rate_LR.png")
+# Convert learning rates to float for proper x-axis labeling
+lrs = [float(lr) for lr in lrs]
 
-    print(f"\nBest Learning Rate: {best_lr} with Validation Accuracy: {best_valid_acc:.4f}")
+# Debug: Check data consistency before plotting
+print("LRS (sorted):", lrs)
+print("Validation Accuracies:", valid_accuracies)
+print("Training Times:", train_times)
+
+# Plot validation accuracy vs. learning rate
+plt.figure(figsize=(8, 5))
+plt.plot(lrs, valid_accuracies, marker='o', linestyle='-', color='red', label='Validation Accuracy')
+plt.xscale("log")  # Log scale for better visualization
+plt.xlabel('Learning Rate')
+plt.ylabel('Validation Accuracy')
+plt.title('Validation Accuracy vs. Learning Rate')
+plt.legend()
+plt.grid()
+plt.subplots_adjust(bottom=0.15, left=0.15)  # Prevent label overlap
+plt.savefig("validation_accuracy_vs_learning_rate_LR.png")  # Save plot
+print("Saved validation accuracy plot as validation_accuracy_vs_learning_rate_LR.png")
+
+# Plot training time vs. learning rate
+plt.figure(figsize=(8, 5))
+plt.plot(lrs, train_times, marker='o', linestyle='-', color='blue', label='Training Time')
+plt.xscale("log")  # Log scale for better visualization
+plt.xlabel('Learning Rate')
+plt.ylabel('Total Training Time (seconds)')
+plt.title('Training Time vs. Learning Rate')
+plt.legend()
+plt.grid()
+plt.subplots_adjust(bottom=0.15, left=0.15)  # Prevent label overlap
+plt.savefig("training_time_vs_learning_rate_LR.png")  # Save plot
+print("Saved training time plot as training_time_vs_learning_rate_LR.png")
+
+# Print best learning rate and corresponding validation accuracy
+print(f"\nBest Learning Rate: {best_lr} with Validation Accuracy: {best_valid_acc:.4f}")

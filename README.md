@@ -65,7 +65,7 @@ Both scripts:
 - Save prediction results to `.csv` files
 - Output training time, validation/test accuracy, and learning rate plots
 
-## 📈 Results Summary
+## Results Summary
 
 | Model | Best Batch Size | Best Learning Rate | Val Accuracy | Test Accuracy | Training Time |
 |-------|------------------|--------------------|--------------|----------------|----------------|

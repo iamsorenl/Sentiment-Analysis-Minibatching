@@ -2,20 +2,20 @@
 
 This repository contains the implementation for **Assignment 1 of NLP 202**, focusing on **minibatching** in PyTorch for **sentiment analysis** on the IMDB dataset. It features two models: a **Logistic Regression (LR)** baseline and a more expressive **LSTM classifier**, both trained and evaluated across various batch sizes and learning rates.
 
-## 📁 Project Overview
+## Project Overview
 
-### 🧠 Models:
+### Models:
 - `LR.py`: Logistic Regression with embedding and mean-pooling
 - `LSTM.py`: LSTM with dropout and final hidden state classification
 
-### 🎯 Core Concepts:
+### Core Concepts:
 - Sentiment analysis on IMDB reviews (binary classification)
 - Efficient training with **mini-batches** of size {1, 8, 16, 32, 64}
 - Learning rate tuning across `{1e-4, 5e-4, 1e-3, 5e-3, 1e-2}`
 - Performance visualization (accuracy vs. batch size / learning rate)
 - Saving predictions and evaluation logs
 
-## 🔧 Environment Setup
+## Environment Setup
 
 ### 1. Clone the repo:
 ```bash
@@ -34,7 +34,7 @@ source venv/bin/activate   # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 📝 Sample `requirements.txt`
+### Sample `requirements.txt`
 ```txt
 torch
 spacy
@@ -47,7 +47,7 @@ numpy
 
 > Note: The scripts automatically download the IMDB dataset and `spaCy` language model (`en_core_web_sm`) if not already present.
 
-## 🚀 How to Run
+## How to Run
 
 ### Train Logistic Regression
 ```bash
